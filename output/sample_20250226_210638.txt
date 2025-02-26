@@ -1,0 +1,59 @@
+STDOUT:
+Starting deployment script for version 1.0.0 in Development environment
+Checking prerequisites...
+Prerequisites checked successfully!
+Step 1: Backing up current configuration
+Backup completed successfully.
+Step 2: Stopping services
+Services stopped successfully.
+Step 3: Copying new files
+Files copied successfully.
+Step 4: Updating configuration
+Configuration updated successfully.
+Step 5: Starting services
+Services started successfully.
+Deployment completed successfully!
+Version 1.0.0 deployed to Development environment at 02/26/2025 21:06:47
+Starting daily backup script for Development environment
+Timestamp: 02/26/2025 21:06:47
+Step 1: Initializing backup process
+Step 2: Creating backup directory
+Backup directory: D:\Backups\Dev\Daily_20250226
+Step 3: Performing database backup
+Database backup completed successfully.
+Step 4: Compressing backup files
+Backup files compressed successfully.
+Backup completed successfully!
+Backup statistics:
+- Total size: 328 MB
+- Files backed up: 53
+- Start time: 02/26/2025 21:06:53.AddMinutes(-5)
+- End time: 02/26/2025 21:06:53
+Starting critical monitoring check for Production environment
+Timestamp: 02/26/2025 21:06:53
+Checking system resources...
+CPU Usage: 77%
+Memory Usage: 44%
+Disk Usage: 92%
+WARNING: High disk usage detected!
+Checking critical services...
+WebServer service is running normally.
+Database service is running normally.
+Authentication service is running normally.
+API service is running normally.
+MessageQueue service is running normally.
+Checking application logs for errors...
+Found 9 errors in the application logs:
+Error  Database query failed
+Error  Connection timeout
+Error  Authentication failure
+Error  API rate limit exceeded
+Error  Authentication failure
+Error  API rate limit exceeded
+Error  Database query failed
+Error  API rate limit exceeded
+Error  Authentication failure
+Monitoring check completed at 02/26/2025 21:06:56
+
+
+STDERR:

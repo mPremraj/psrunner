@@ -1,0 +1,65 @@
+<!-- templates/index.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="dashboard-container">
+    <h2>PowerShell Script Runner</h2>
+    
+    <div class="selection-container">
+        <div class="form-group">
+            <label for="environment">Environment:</label>
+            <select id="environment" class="dropdown">
+                <option value="">Select Environment</option>
+                {% for env in environments %}
+                <option value="{{ env }}">{{ env }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="activityType">Activity Type:</label>
+            <select id="activityType" class="dropdown" disabled>
+                <option value="">Select Activity Type</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="version">Version:</label>
+            <select id="version" class="dropdown" disabled>
+                <option value="">Select Version</option>
+            </select>
+        </div>
+        
+        <div class="action-buttons">
+            <button id="viewButton" class="btn" disabled>View Script</button>
+            <button id="runButton" class="btn btn-primary" disabled>Run Script</button>
+        </div>
+    </div>
+    
+    <div id="scriptContent" class="script-container hidden">
+        <h3>Script Content</h3>
+        <div class="script-header">
+            <span id="scriptPath"></span>
+            <button id="closeScriptBtn" class="btn btn-small">Close</button>
+        </div>
+        <pre id="scriptPreview"></pre>
+    </div>
+    
+    <div id="executionStatus" class="execution-status hidden">
+        <h3>Execution Status</h3>
+        <div id="statusIndicator" class="status-indicator">
+            <div class="spinner"></div>
+            <span>Running script...</span>
+        </div>
+        <div id="executionResult" class="hidden">
+            <h4>Execution Complete</h4>
+            <p>Output saved to: <span id="outputFilePath"></span></p>
+            <div class="output-preview">
+                <h5>Standard Output:</h5>
+                <pre id="stdoutContent"></pre>
+                <h5>Standard Error:</h5>
+                <pre id="stderrContent"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

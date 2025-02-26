@@ -1,0 +1,56 @@
+<!-- templates/config_editor.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="config-editor-container">
+    <h2>Configuration Editor</h2>
+    
+    <div class="editor-container">
+        <textarea id="configEditor">{{ config }}</textarea>
+    </div>
+    
+    <div class="editor-actions">
+        <button id="saveConfigBtn" class="btn btn-primary">Save Configuration</button>
+        <div id="saveStatus" class="save-status"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const configEditor = document.getElementById('configEditor');
+    const saveConfigBtn = document.getElementById('saveConfigBtn');
+    const saveStatus = document.getElementById('saveStatus');
+    
+    saveConfigBtn.addEventListener('click', function() {
+        let configData;
+        try {
+            configData = JSON.parse(configEditor.value);
+            saveStatus.innerHTML = '<span class="status-saving">Saving...</span>';
+            
+            fetch('/save_config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'config=' + encodeURIComponent(JSON.stringify(configData))
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    saveStatus.innerHTML = '<span class="status-success">Configuration saved successfully!</span>';
+                    setTimeout(() => { saveStatus.innerHTML = ''; }, 3000);
+                } else {
+                    saveStatus.innerHTML = '<span class="status-error">Error: ' + data.error + '</span>';
+                }
+            })
+            .catch(error => {
+                saveStatus.innerHTML = '<span class="status-error">Error: ' + error.message + '</span>';
+            });
+        } catch (e) {
+            saveStatus.innerHTML = '<span class="status-error">Invalid JSON: ' + e.message + '</span>';
+        }
+    });
+});
+</script>
+{% endblock %}

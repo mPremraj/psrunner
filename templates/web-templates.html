@@ -1,0 +1,190 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PowerShell Script Runner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="logo">PowerShell Script Runner</div>
+        {% if session.user %}
+        <div class="user-info">
+            <span>Welcome, {{ session.user }}</span>
+            <a href="{{ url_for('logout') }}" class="btn btn-small">Logout</a>
+        </div>
+        {% endif %}
+    </header>
+    <nav>
+        {% if session.user %}
+        <ul>
+            <li><a href="{{ url_for('index') }}">Home</a></li>
+            <li><a href="{{ url_for('config_editor') }}">Configuration Editor</a></li>
+        </ul>
+        {% endif %}
+    </nav>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    <footer>
+        <p>&copy; 2025 PowerShell Script Runner</p>
+    </footer>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
+
+<!-- templates/login.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="login-container">
+    <h2>Login</h2>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="error-messages">
+                {% for message in messages %}
+                    <p>{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    <form method="post" action="{{ url_for('login') }}">
+        <div class="form-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+        </div>
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Login</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+<!-- templates/index.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="dashboard-container">
+    <h2>PowerShell Script Runner</h2>
+    
+    <div class="selection-container">
+        <div class="form-group">
+            <label for="environment">Environment:</label>
+            <select id="environment" class="dropdown">
+                <option value="">Select Environment</option>
+                {% for env in environments %}
+                <option value="{{ env }}">{{ env }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="activityType">Activity Type:</label>
+            <select id="activityType" class="dropdown" disabled>
+                <option value="">Select Activity Type</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="version">Version:</label>
+            <select id="version" class="dropdown" disabled>
+                <option value="">Select Version</option>
+            </select>
+        </div>
+        
+        <div class="action-buttons">
+            <button id="viewButton" class="btn" disabled>View Script</button>
+            <button id="runButton" class="btn btn-primary" disabled>Run Script</button>
+        </div>
+    </div>
+    
+    <div id="scriptContent" class="script-container hidden">
+        <h3>Script Content</h3>
+        <div class="script-header">
+            <span id="scriptPath"></span>
+            <button id="closeScriptBtn" class="btn btn-small">Close</button>
+        </div>
+        <pre id="scriptPreview"></pre>
+    </div>
+    
+    <div id="executionStatus" class="execution-status hidden">
+        <h3>Execution Status</h3>
+        <div id="statusIndicator" class="status-indicator">
+            <div class="spinner"></div>
+            <span>Running script...</span>
+        </div>
+        <div id="executionResult" class="hidden">
+            <h4>Execution Complete</h4>
+            <p>Output saved to: <span id="outputFilePath"></span></p>
+            <div class="output-preview">
+                <h5>Standard Output:</h5>
+                <pre id="stdoutContent"></pre>
+                <h5>Standard Error:</h5>
+                <pre id="stderrContent"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+<!-- templates/config_editor.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="config-editor-container">
+    <h2>Configuration Editor</h2>
+    
+    <div class="editor-container">
+        <textarea id="configEditor">{{ config }}</textarea>
+    </div>
+    
+    <div class="editor-actions">
+        <button id="saveConfigBtn" class="btn btn-primary">Save Configuration</button>
+        <div id="saveStatus" class="save-status"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const configEditor = document.getElementById('configEditor');
+    const saveConfigBtn = document.getElementById('saveConfigBtn');
+    const saveStatus = document.getElementById('saveStatus');
+    
+    saveConfigBtn.addEventListener('click', function() {
+        let configData;
+        try {
+            configData = JSON.parse(configEditor.value);
+            saveStatus.innerHTML = '<span class="status-saving">Saving...</span>';
+            
+            fetch('/save_config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'config=' + encodeURIComponent(JSON.stringify(configData))
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    saveStatus.innerHTML = '<span class="status-success">Configuration saved successfully!</span>';
+                    setTimeout(() => { saveStatus.innerHTML = ''; }, 3000);
+                } else {
+                    saveStatus.innerHTML = '<span class="status-error">Error: ' + data.error + '</span>';
+                }
+            })
+            .catch(error => {
+                saveStatus.innerHTML = '<span class="status-error">Error: ' + error.message + '</span>';
+            });
+        } catch (e) {
+            saveStatus.innerHTML = '<span class="status-error">Invalid JSON: ' + e.message + '</span>';
+        }
+    });
+});
+</script>
+{% endblock %}

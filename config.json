@@ -1,0 +1,82 @@
+{
+    "Development": {
+        "Deployment": [
+            {
+                "version": "1.0.0",
+                "script": "deploy_v1.ps1",
+                "description": "Deploy version 1.0.0 to development environment"
+            },
+            {
+                "version": "1.1.0",
+                "script": "deploy_v1_1.ps1",
+                "description": "Deploy version 1.1.0 to development environment"
+            }
+        ],
+        "Backup": [
+            {
+                "version": "Daily",
+                "script": "backup_daily.ps1",
+                "description": "Daily backup script for development environment"
+            },
+            {
+                "version": "Full",
+                "script": "sample.ps1",
+                "description": "Full backup script for development environment"
+            }
+        ]
+    },
+    "Staging": {
+        "Deployment": [
+            {
+                "version": "1.0.0",
+                "script": "deploy_staging_v1.ps1",
+                "description": "Deploy version 1.0.0 to staging environment"
+            }
+        ],
+        "Monitoring": [
+            {
+                "version": "Basic",
+                "script": "monitor_basic.ps1",
+                "description": "Basic monitoring for staging environment"
+            },
+            {
+                "version": "Advanced",
+                "script": "monitor_advanced.ps1",
+                "description": "Advanced monitoring for staging environment"
+            }
+        ]
+    },
+    "Production": {
+        "Deployment": [
+            {
+                "version": "1.0.0",
+                "script": "sample.ps1",
+                "description": "Deploy version 1.0.0 to production environment"
+            }
+        ],
+        "Backup": [
+            {
+                "version": "Daily",
+                "script": "backup_prod_daily.ps1",
+                "description": "Daily backup script for production environment"
+            },
+            {
+                "version": "Weekly",
+                "script": "backup_prod_weekly.ps1",
+                "description": "Weekly backup script for production environment"
+            },
+            {
+                "version": "Monthly",
+                "script": "backup_prod_monthly.ps1",
+                "description": "Monthly backup script for production environment"
+            }
+        ],
+        "Monitoring": [
+            {
+                "version": "Critical",
+                "script": "monitor_critical.ps1",
+                "description": "Critical monitoring for production environment"
+            }
+        ]
+    }
+}
