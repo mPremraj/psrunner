@@ -21,6 +21,7 @@
         {% if session.user %}
         <ul>
             <li><a href="{{ url_for('index') }}">Home</a></li>
+            <li><a href="{{ url_for('history') }}">Execution History</a></li>
             <li><a href="{{ url_for('config_editor') }}">Configuration Editor</a></li>
         </ul>
         {% endif %}

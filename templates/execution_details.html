@@ -1,0 +1,82 @@
+<!-- templates/execution_details.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="execution-details-container">
+    <h2>Execution Details</h2>
+    
+    <div class="navbar">
+        <ul>
+            <li><a href="{{ url_for('index') }}">Run Scripts</a></li>
+            <li><a href="{{ url_for('history') }}">Execution History</a></li>
+            <li><a href="{{ url_for('config_editor') }}">Config Editor</a></li>
+        </ul>
+    </div>
+    
+    <div class="back-button">
+        <a href="{{ url_for('history') }}" class="btn">&laquo; Back to History</a>
+    </div>
+    
+    <div class="execution-header">
+        <h3>
+            <span class="status-badge {{ execution.status }}">{{ execution.status.upper() }}</span>
+            {{ execution.script_name }}
+        </h3>
+        <div class="execution-meta">
+            <p><strong>Task ID:</strong> {{ execution.task_id }}</p>
+            <p><strong>Environment:</strong> {{ execution.environment }}</p>
+            <p><strong>Activity:</strong> {{ execution.activity }}</p>
+            <p><strong>Version:</strong> {{ execution.version }}</p>
+            <p><strong>Started By:</strong> {{ execution.username }}</p>
+            <p><strong>Start Time:</strong> {{ execution.start_time }}</p>
+            {% if execution.end_time %}
+            <p><strong>End Time:</strong> {{ execution.end_time }}</p>
+            {% endif %}
+            {% if execution.return_code is not none %}
+            <p><strong>Return Code:</strong> {{ execution.return_code }}</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="output-container">
+        <h4>Output</h4>
+        <div class="output-tabs">
+            <button class="tab-btn active" data-tab="stdout">Standard Output</button>
+            <button class="tab-btn" data-tab="stderr">Standard Error</button>
+            <button class="tab-btn" data-tab="file">Output File</button>
+        </div>
+        
+        <div class="tab-content">
+            <div id="stdout-content" class="tab-pane active">
+                <pre>{{ execution.stdout or 'No standard output' }}</pre>
+            </div>
+            <div id="stderr-content" class="tab-pane">
+                <pre>{{ execution.stderr or 'No standard error' }}</pre>
+            </div>
+            <div id="file-content" class="tab-pane">
+                <pre>{{ output_content or 'Output file not found' }}</pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Tab switching for output
+        document.querySelectorAll('.tab-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                // Remove active class from all buttons and panes
+                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+                
+                // Add active class to clicked button
+                this.classList.add('active');
+                
+                // Show corresponding tab content
+                const tabId = this.getAttribute('data-tab');
+                document.getElementById(`${tabId}-content`).classList.add('active');
+            });
+        });
+    });
+</script>
+<script src="{{ url_for('static', filename='js/script2.js') }}"></script>
+{% endblock %}

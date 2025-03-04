@@ -52,6 +52,11 @@
                 "version": "1.0.0",
                 "script": "sample.ps1",
                 "description": "Deploy version 1.0.0 to production environment"
+            },
+            {
+                "version": "1.0.1",
+                "script": "sample.ps1",
+                "description": "Deploy version 1.0.1 to production environment"
             }
         ],
         "Backup": [

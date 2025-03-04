@@ -1,0 +1,181 @@
+<!-- templates/history.html -->
+{% extends "base.html" %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style2.css') }}">
+<div class="history-container">
+    <h2>Script Execution History</h2>
+    
+    
+    <div class="filter-container">
+        <div class="form-group">
+            <label for="statusFilter">Status:</label>
+            <select id="statusFilter" class="dropdown">
+                <option value="">All Statuses</option>
+                <option value="completed">Completed</option>
+                <option value="running">Running</option>
+                <option value="failed">Failed</option>
+                <option value="canceled">Canceled</option>
+                <option value="error">Error</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="environmentFilter">Environment:</label>
+            <select id="environmentFilter" class="dropdown">
+                <option value="">All Environments</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="dateFilter">Date Range:</label>
+            <input type="date" id="startDate" class="date-input">
+            <span>to</span>
+            <input type="date" id="endDate" class="date-input">
+        </div>
+        
+        <button id="applyFilters" class="btn">Apply Filters</button>
+        <button id="clearFilters" class="btn">Clear Filters</button>
+    </div>
+    
+    <div class="history-grid">
+        <table id="historyTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Environment</th>
+                    <th>Activity</th>
+                    <th>Version</th>
+                    <th>Script</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Status</th>
+                    <th>User</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="historyTableBody">
+                <!-- History items will be loaded here -->
+            </tbody>
+        </table>
+    </div>
+    
+    <div id="loadingIndicator" class="loading-indicator">
+        <div class="spinner"></div>
+        <span>Loading history...</span>
+    </div>
+    
+    <div id="noResults" class="no-results hidden">
+        <p>No execution history found with the selected filters.</p>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load history data
+        loadHistoryData();
+        
+        // Set up filter handling
+        document.getElementById('applyFilters').addEventListener('click', loadHistoryData);
+        document.getElementById('clearFilters').addEventListener('click', clearFilters);
+        
+        // Populate environment filter dropdown (dynamically)
+        populateEnvironmentFilter();
+    });
+    
+    function loadHistoryData() {
+        const statusFilter = document.getElementById('statusFilter').value;
+        const environmentFilter = document.getElementById('environmentFilter').value;
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        
+        // Show loading indicator
+        document.getElementById('loadingIndicator').classList.remove('hidden');
+        document.getElementById('noResults').classList.add('hidden');
+        
+        // Build query parameters
+        let queryParams = new URLSearchParams();
+        if (statusFilter) queryParams.append('status', statusFilter);
+        if (environmentFilter) queryParams.append('environment', environmentFilter);
+        if (startDate) queryParams.append('start_date', startDate);
+        if (endDate) queryParams.append('end_date', endDate);
+        
+        // Fetch history data
+        fetch(`/get_history?${queryParams.toString()}`)
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading indicator
+                document.getElementById('loadingIndicator').classList.add('hidden');
+                
+                // Clear current table
+                const tableBody = document.getElementById('historyTableBody');
+                tableBody.innerHTML = '';
+                
+                if (data.length === 0) {
+                    document.getElementById('noResults').classList.remove('hidden');
+                    return;
+                }
+                
+                // Populate table with history items
+                data.forEach(item => {
+                    const row = document.createElement('tr');
+                    
+                    // Format dates
+                    const startTime = new Date(item.start_time).toLocaleString();
+                    const endTime = item.end_time ? new Date(item.end_time).toLocaleString() : '-';
+                    
+                    row.innerHTML = `
+                        <td>${item.id}</td>
+                        <td>${item.environment}</td>
+                        <td>${item.activity}</td>
+                        <td>${item.version}</td>
+                        <td>${item.script_name}</td>
+                        <td>${startTime}</td>
+                        <td>${endTime}</td>
+                        <td><span class="status-badge ${item.status}">${item.status.toUpperCase()}</span></td>
+                        <td>${item.username}</td>
+                        <td>
+                            <a href="/execution_details/${item.id}" class="btn btn-small">View Details</a>
+                        </td>
+                    `;
+                    
+                    tableBody.appendChild(row);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading history:', error);
+                document.getElementById('loadingIndicator').classList.add('hidden');
+                alert('An error occurred while loading history data.');
+            });
+    }
+    
+    function clearFilters() {
+        document.getElementById('statusFilter').value = '';
+        document.getElementById('environmentFilter').value = '';
+        document.getElementById('startDate').value = '';
+        document.getElementById('endDate').value = '';
+        loadHistoryData();
+    }
+    
+    function populateEnvironmentFilter() {
+        // Fetch unique environments from the server
+        fetch('/get_history')
+            .then(response => response.json())
+            .then(data => {
+                const environments = new Set();
+                data.forEach(item => environments.add(item.environment));
+                
+                const select = document.getElementById('environmentFilter');
+                environments.forEach(env => {
+                    const option = document.createElement('option');
+                    option.value = env;
+                    option.textContent = env;
+                    select.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading environments:', error);
+            });
+    }
+</script>
+<script src="{{ url_for('static', filename='js/script2.js') }}"></script>
+{% endblock %}

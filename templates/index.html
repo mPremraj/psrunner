@@ -49,9 +49,28 @@
         <div id="statusIndicator" class="status-indicator">
             <div class="spinner"></div>
             <span>Running script...</span>
+            <button id="cancelScriptBtn" class="btn btn-danger">Cancel Execution</button>
         </div>
+        
+        <div id="liveOutput" class="live-output">
+            <h4>Live Output</h4>
+            <div class="output-tabs">
+                <button class="tab-btn active" data-tab="stdout">Standard Output</button>
+                <button class="tab-btn" data-tab="stderr">Standard Error</button>
+            </div>
+            <div class="tab-content">
+                <div id="stdout-content" class="tab-pane active">
+                    <pre id="liveStdoutContent"></pre>
+                </div>
+                <div id="stderr-content" class="tab-pane">
+                    <pre id="liveStderrContent"></pre>
+                </div>
+            </div>
+        </div>
+        
         <div id="executionResult" class="hidden">
             <h4>Execution Complete</h4>
+            <div id="statusBadge" class="status-badge"></div>
             <p>Output saved to: <span id="outputFilePath"></span></p>
             <div class="output-preview">
                 <h5>Standard Output:</h5>
@@ -62,4 +81,149 @@
         </div>
     </div>
 </div>
+
+<script>
+    let currentTaskId = null;
+    let statusCheckInterval = null;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // ... (existing code) ...
+        
+        // Run script button
+        document.getElementById('runButton').addEventListener('click', function() {
+            const env = document.getElementById('environment').value;
+            const activity = document.getElementById('activityType').value;
+            const version = document.getElementById('version').value;
+            
+            if (!env || !activity || !version) {
+                alert('Please select all options');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('environment', env);
+            formData.append('activity', activity);
+            formData.append('version', version);
+            
+            fetch('/run_script', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+                
+                // Show execution status
+                document.getElementById('executionStatus').classList.remove('hidden');
+                document.getElementById('executionResult').classList.add('hidden');
+                document.getElementById('statusIndicator').classList.remove('hidden');
+                
+                // Clear previous output
+                document.getElementById('liveStdoutContent').textContent = '';
+                document.getElementById('liveStderrContent').textContent = '';
+                
+                // Save task ID for status checking
+                currentTaskId = data.task_id;
+                
+                // Start checking status
+                if (statusCheckInterval) {
+                    clearInterval(statusCheckInterval);
+                }
+                
+                statusCheckInterval = setInterval(checkTaskStatus, 1000);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+            });
+        });
+        
+        // Cancel script button
+        document.getElementById('cancelScriptBtn').addEventListener('click', function() {
+            if (!currentTaskId) return;
+            
+            fetch(`/cancel_script/${currentTaskId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    alert(data.error || 'Failed to cancel script execution');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while canceling the script.');
+            });
+        });
+        
+        // Tab switching for live output
+        document.querySelectorAll('.tab-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                // Remove active class from all buttons and panes
+                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+                
+                // Add active class to clicked button
+                this.classList.add('active');
+                
+                // Show corresponding tab content
+                const tabId = this.getAttribute('data-tab');
+                document.getElementById(`${tabId}-content`).classList.add('active');
+            });
+        });
+    });
+    
+    function checkTaskStatus() {
+        if (!currentTaskId) return;
+        
+        fetch(`/task_status/${currentTaskId}`)
+            .then(response => response.json())
+            .then(data => {
+                // Update live output
+                const stdoutContent = document.getElementById('liveStdoutContent');
+                const stderrContent = document.getElementById('liveStderrContent');
+                
+                if (data.stdout) {
+                    stdoutContent.textContent = data.stdout;
+                    // Auto-scroll to bottom
+                    stdoutContent.scrollTop = stdoutContent.scrollHeight;
+                }
+                
+                if (data.stderr) {
+                    stderrContent.textContent = data.stderr;
+                    // Auto-scroll to bottom
+                    stderrContent.scrollTop = stderrContent.scrollHeight;
+                }
+                
+                // Check if execution is complete
+                if (data.status === 'completed' || data.status === 'failed' || data.status === 'canceled' || data.status === 'error') {
+                    clearInterval(statusCheckInterval);
+                    
+                    // Hide spinner, show result
+                    document.getElementById('statusIndicator').classList.add('hidden');
+                    document.getElementById('executionResult').classList.remove('hidden');
+                    
+                    // Update status badge
+                    const statusBadge = document.getElementById('statusBadge');
+                    statusBadge.textContent = data.status.toUpperCase();
+                    statusBadge.className = 'status-badge ' + data.status;
+                    
+                    // Update output
+                    document.getElementById('stdoutContent').textContent = data.stdout || 'No output';
+                    document.getElementById('stderrContent').textContent = data.stderr || 'No errors';
+                    
+                    // Clear task ID
+                    currentTaskId = null;
+                }
+            })
+            .catch(error => {
+                console.error('Error checking task status:', error);
+                clearInterval(statusCheckInterval);
+            });
+    }
+</script>
 {% endblock %}
