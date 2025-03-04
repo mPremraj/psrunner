@@ -1,54 +1,160 @@
-# Directory structure:
-# /app
-#   app.py
-#   config.json
-#   database.py
-#   /static
-#     /css
-#       style.css
-#     /js
-#       script.js
-#   /templates
-#     base.html
-#     index.html
-#     login.html
-#     config_editor.html
-#     history.html
-#     execution_details.html
-#   /output
-#   /scripts
-#     sample_script1.ps1
-#     sample_script2.ps1
-
-# app.py
 import os
 import json
 import subprocess
 import datetime
 import threading
-import sqlite3
+import xml.etree.ElementTree as ET
+import xml.dom.minidom as minidom
 from functools import wraps
 from flask import Flask, render_template, request, session, redirect, url_for, jsonify, flash
 from werkzeug.security import check_password_hash
 import win32security
 import win32con
-from database import init_db, get_db_connection, close_connection
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # For session management
 app.config['SCRIPT_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scripts')
 app.config['OUTPUT_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'output')
-app.config['DATABASE'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'script_history.db')
+app.config['HISTORY_FILE'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'script_history.xml')
 
 # Ensure output directory exists
 if not os.path.exists(app.config['OUTPUT_FOLDER']):
     os.makedirs(app.config['OUTPUT_FOLDER'])
 
-# Initialize database
-init_db(app.config['DATABASE'])
-
 # Store active running tasks
 active_tasks = {}
+
+def init_history_file():
+    """Initialize XML history file if it doesn't exist"""
+    if not os.path.exists(app.config['HISTORY_FILE']):
+        root = ET.Element('script_executions')
+        tree = ET.ElementTree(root)
+        tree.write(app.config['HISTORY_FILE'], encoding='utf-8', xml_declaration=True)
+
+def save_execution_record(task_id, username, env, activity, version, script_name, output_file, start_time, status):
+    """Save execution record to XML file"""
+    try:
+        tree = ET.parse(app.config['HISTORY_FILE'])
+        root = tree.getroot()
+
+        # Create new execution record
+        execution = ET.SubElement(root, 'execution')
+        ET.SubElement(execution, 'id').text = str(len(root.findall('execution')) + 1)
+        ET.SubElement(execution, 'task_id').text = task_id
+        ET.SubElement(execution, 'username').text = username
+        ET.SubElement(execution, 'environment').text = env
+        ET.SubElement(execution, 'activity').text = activity
+        ET.SubElement(execution, 'version').text = version
+        ET.SubElement(execution, 'script_name').text = script_name
+        ET.SubElement(execution, 'output_file').text = output_file
+        ET.SubElement(execution, 'start_time').text = start_time
+        ET.SubElement(execution, 'end_time').text = ""
+        ET.SubElement(execution, 'status').text = status
+        ET.SubElement(execution, 'stdout').text = ""
+        ET.SubElement(execution, 'stderr').text = ""
+
+        # Pretty print and save
+        rough_string = ET.tostring(root, 'utf-8')
+        reparsed = minidom.parseString(rough_string)
+        with open(app.config['HISTORY_FILE'], 'w') as f:
+            f.write(reparsed.toprettyxml(indent="  "))
+
+    except Exception as e:
+        print(f"Error saving execution record: {e}")
+
+def update_execution_record(task_id, status=None, end_time=None, stdout=None, stderr=None):
+    """Update execution record in XML file"""
+    try:
+        tree = ET.parse(app.config['HISTORY_FILE'])
+        root = tree.getroot()
+
+        for execution in root.findall('execution'):
+            if execution.find('task_id').text == task_id:
+                if status:
+                    execution.find('status').text = status
+                if end_time:
+                    execution.find('end_time').text = end_time
+                if stdout is not None:
+                    execution.find('stdout').text = stdout
+                if stderr is not None:
+                    execution.find('stderr').text = stderr
+
+                # Pretty print and save
+                rough_string = ET.tostring(root, 'utf-8')
+                reparsed = minidom.parseString(rough_string)
+                with open(app.config['HISTORY_FILE'], 'w') as f:
+                    f.write(reparsed.toprettyxml(indent="  "))
+                break
+
+    except Exception as e:
+        print(f"Error updating execution record: {e}")
+
+def get_execution_history():
+    """Retrieve execution history from XML file"""
+    try:
+        tree = ET.parse(app.config['HISTORY_FILE'])
+        root = tree.getroot()
+
+        history_items = []
+        for execution in root.findall('execution'):
+            history_items.append({
+                'id': execution.find('id').text,
+                'task_id': execution.find('task_id').text,
+                'environment': execution.find('environment').text,
+                'activity': execution.find('activity').text,
+                'version': execution.find('version').text,
+                'script_name': execution.find('script_name').text,
+                'start_time': execution.find('start_time').text,
+                'end_time': execution.find('end_time').text or '',
+                'status': execution.find('status').text,
+                'username': execution.find('username').text
+            })
+
+        # Sort by start time, most recent first
+        return sorted(history_items, key=lambda x: x['start_time'], reverse=True)
+
+    except Exception as e:
+        print(f"Error retrieving execution history: {e}")
+        return []
+
+def get_executiondetails(task_id):
+    """Retrieve specific execution details from XML file"""
+    try:
+        tree = ET.parse(app.config['HISTORY_FILE'])
+        root = tree.getroot()
+
+        for execution in root.findall('execution'):
+            if execution.find('task_id').text == task_id:
+                # Convert XML element to dictionary
+                details = {
+                    'id': execution.find('id').text,
+                    'task_id': execution.find('task_id').text,
+                    'environment': execution.find('environment').text,
+                    'activity': execution.find('activity').text,
+                    'version': execution.find('version').text,
+                    'script_name': execution.find('script_name').text,
+                    'output_file': execution.find('output_file').text,
+                    'start_time': execution.find('start_time').text,
+                    'end_time': execution.find('end_time').text or '',
+                    'status': execution.find('status').text,
+                    'username': execution.find('username').text,
+                    'stdout': execution.find('stdout').text or '',
+                    'stderr': execution.find('stderr').text or ''
+                }
+                return details
+
+    except Exception as e:
+        print(f"Error retrieving execution details: {e}")
+        return None
+
+def login_required(f):
+    """Decorator to require login for routes"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 def load_config():
     """Load configuration from config.json file"""
@@ -59,15 +165,6 @@ def save_config(config_data):
     """Save configuration to config.json file"""
     with open('config.json', 'w') as f:
         json.dump(config_data, f, indent=4)
-
-def login_required(f):
-    """Decorator to require login for routes"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'user' not in session:
-            return redirect(url_for('login'))
-        return f(*args, **kwargs)
-    return decorated_function
 
 def validate_windows_auth(username, password):
     """Validate user credentials against Windows authentication"""
@@ -94,7 +191,7 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        if True:
+        if True:  # Replace with actual authentication if needed
             session['user'] = username
             return redirect(url_for('index'))
         else:
@@ -188,15 +285,15 @@ def run_powershell_script(script_path, output_path, task_id):
             with open(output_path, 'w') as output_file:
                 output_file.write(f"STDOUT:\n{stdout_data}\n\nSTDERR:\n{stderr_data}")
             
-            # Update database with results
-            conn = get_db_connection(app.config['DATABASE'])
+            # Update XML with results
             status = 'completed' if process.returncode == 0 else 'failed'
-            conn.execute(
-                'UPDATE script_executions SET status = ?, end_time = ?, stdout = ?, stderr = ?, return_code = ? WHERE task_id = ?',
-                (status, datetime.datetime.now().isoformat(), stdout_data, stderr_data, process.returncode, task_id)
+            update_execution_record(
+                task_id, 
+                status=status, 
+                end_time=datetime.datetime.now().isoformat(),
+                stdout=stdout_data,
+                stderr=stderr_data
             )
-            conn.commit()
-            close_connection(conn)
             
             # Update status for the frontend
             active_tasks[task_id]['status'] = status
@@ -214,14 +311,13 @@ def run_powershell_script(script_path, output_path, task_id):
         with open(output_path, 'w') as output_file:
             output_file.write(f"ERROR: {error_message}")
         
-        # Update database with error
-        conn = get_db_connection(app.config['DATABASE'])
-        conn.execute(
-            'UPDATE script_executions SET status = ?, end_time = ?, stderr = ? WHERE task_id = ?',
-            ('error', datetime.datetime.now().isoformat(), error_message, task_id)
+        # Update XML with error
+        update_execution_record(
+            task_id, 
+            status='error', 
+            end_time=datetime.datetime.now().isoformat(),
+            stderr=error_message
         )
-        conn.commit()
-        close_connection(conn)
         
         if task_id in active_tasks:
             active_tasks[task_id]['status'] = 'error'
@@ -260,14 +356,11 @@ def run_script():
         # Generate unique task ID
         task_id = f"{env}_{activity}_{version}_{timestamp}"
         
-        # Insert execution record into database
-        conn = get_db_connection(app.config['DATABASE'])
-        conn.execute(
-            'INSERT INTO script_executions (task_id, username, environment, activity, version, script_name, output_file, start_time, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            (task_id, session['user'], env, activity, version, script_name, output_file, datetime.datetime.now().isoformat(), 'running')
+        # Insert execution record
+        save_execution_record(
+            task_id, session['user'], env, activity, version, 
+            script_name, output_file, datetime.datetime.now().isoformat(), 'running'
         )
-        conn.commit()
-        close_connection(conn)
         
         # Start script execution in a separate thread
         def execute_script():
@@ -297,17 +390,14 @@ def task_status(task_id):
             'stderr': task_data['stderr']
         })
     
-    # Check database for completed/failed/canceled tasks
-    conn = get_db_connection(app.config['DATABASE'])
-    cursor = conn.execute('SELECT status, stdout, stderr FROM script_executions WHERE task_id = ?', (task_id,))
-    row = cursor.fetchone()
-    close_connection(conn)
+    # Check XML for completed/failed/canceled tasks
+    executiondetails = get_executiondetails(task_id)
     
-    if row:
+    if executiondetails:
         return jsonify({
-            'status': row[0],
-            'stdout': row[1] or "",
-            'stderr': row[2] or ""
+            'status': executiondetails['status'],
+            'stdout': executiondetails['stdout'] or "",
+            'stderr': executiondetails['stderr'] or ""
         })
     
     return jsonify({'status': 'unknown'})
@@ -328,14 +418,12 @@ def cancel_script(task_id):
             with open(output_path, 'w') as output_file:
                 output_file.write("Script execution was canceled by user.")
             
-            # Update database
-            conn = get_db_connection(app.config['DATABASE'])
-            conn.execute(
-                'UPDATE script_executions SET status = ?, end_time = ? WHERE task_id = ?',
-                ('canceled', datetime.datetime.now().isoformat(), task_id)
+            # Update XML record
+            update_execution_record(
+                task_id, 
+                status='canceled', 
+                end_time=datetime.datetime.now().isoformat()
             )
-            conn.commit()
-            close_connection(conn)
             
             # Update task status
             active_tasks[task_id]['status'] = 'canceled'
@@ -354,57 +442,49 @@ def history():
 @app.route('/get_history')
 @login_required
 def get_history():
-    conn = get_db_connection(app.config['DATABASE'])
-    cursor = conn.execute(
-        'SELECT id, task_id, environment, activity, version, script_name, start_time, end_time, status, username FROM script_executions ORDER BY start_time DESC'
-    )
-    
-    history_items = []
-    for row in cursor:
-        history_items.append({
-            'id': row[0],
-            'task_id': row[1],
-            'environment': row[2],
-            'activity': row[3],
-            'version': row[4],
-            'script_name': row[5],
-            'start_time': row[6],
-            'end_time': row[7] or '',
-            'status': row[8],
-            'username': row[9]
-        })
-    
-    close_connection(conn)
+    history_items = get_execution_history()
     return jsonify(history_items)
 
-@app.route('/execution_details/<int:execution_id>')
+@app.route('/executiondetails/<string:execution_id>')
 @login_required
-def execution_details(execution_id):
-    conn = get_db_connection(app.config['DATABASE'])
-    cursor = conn.execute(
-        'SELECT * FROM script_executions WHERE id = ?',
-        (execution_id,)
-    )
-    
-    execution = cursor.fetchone()
-    close_connection(conn)
-    
-    if execution:
-        # Convert SQLite row to dict
-        column_names = [description[0] for description in cursor.description]
-        execution_dict = {column_names[i]: execution[i] for i in range(len(column_names))}
+def executiondetails(execution_id):
+    # Convert numeric ID to task_id by searching through XML history
+    try:
+        tree = ET.parse(app.config['HISTORY_FILE'])
+        root = tree.getroot()
+
+        for execution in root.findall('execution'):
+            if execution.find('id').text == str(execution_id):
+                task_id = execution.find('task_id').text
+                break
+        else:
+            flash('Execution record not found')
+            return redirect(url_for('history'))
+
+        # Now fetch the details using task_id
+        execution = get_executiondetails(task_id)
         
-        # Check if output file exists and get content
-        output_path = os.path.join(app.config['OUTPUT_FOLDER'], execution_dict['output_file'])
-        output_content = ""
-        if os.path.exists(output_path):
-            with open(output_path, 'r') as f:
-                output_content = f.read()
+        if execution:
+            # Check if output file exists and get content
+            output_path = os.path.join(app.config['OUTPUT_FOLDER'], execution['output_file'])
+            output_content = ""
+            if os.path.exists(output_path):
+                with open(output_path, 'r') as f:
+                    output_content = f.read()
+            
+            # Add task_id to execution details to match frontend expectations
+            execution['id'] = execution_id
+            
+            return render_template('executiondetails.html', execution=execution, output_content=output_content)
         
-        return render_template('execution_details.html', execution=execution_dict, output_content=output_content)
+        flash('Execution record not found')
+        return redirect(url_for('history'))
+
+    except Exception as e:
+        print(f"Error in execution_details: {e}")
+        flash('An error occurred while retrieving execution details')
+        return redirect(url_for('history'))
     
-    flash('Execution record not found')
-    return redirect(url_for('history'))
 
 @app.route('/config_editor')
 @login_required
@@ -423,4 +503,7 @@ def save_config_route():
         return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == '__main__':
+    # Initialize XML history file before running app
+    init_history_file()
     app.run(debug=True)
+           

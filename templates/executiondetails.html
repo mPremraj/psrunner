@@ -1,16 +1,10 @@
 <!-- templates/execution_details.html -->
 {% extends "base.html" %}
 {% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style2.css') }}">
 <div class="execution-details-container">
     <h2>Execution Details</h2>
-    
-    <div class="navbar">
-        <ul>
-            <li><a href="{{ url_for('index') }}">Run Scripts</a></li>
-            <li><a href="{{ url_for('history') }}">Execution History</a></li>
-            <li><a href="{{ url_for('config_editor') }}">Config Editor</a></li>
-        </ul>
-    </div>
+
     
     <div class="back-button">
         <a href="{{ url_for('history') }}" class="btn">&laquo; Back to History</a>
